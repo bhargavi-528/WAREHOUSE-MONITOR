@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Warehouse Restricted Zone Monitoring</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #07111f;
+    color: #ffffff;
+    min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+    background: linear-gradient(135deg, #0d1b2a, #102a43);
+    padding: 22px 35px;
+    border-bottom: 1px solid #243b53;
+}
+
+.header h1 {
+    font-size: 28px;
+    letter-spacing: 1px;
+}
+
+.header p {
+    margin-top: 6px;
+    color: #9fb3c8;
+    font-size: 14px;
+}
+
+/* MAIN */
+.container {
+    padding: 25px;
+    max-width: 1500px;
+    margin: auto;
+}
+
+/* CONNECTION */
+.connection {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #0d1b2a;
+    border: 1px solid #243b53;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.connection-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #f5b942;
+}
+
+.connection.connected .connection-dot {
+    background: #2ecc71;
+}
+
+.connection.failed .connection-dot {
+    background: #e74c3c;
+}
+
+/* KPI GRID */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.card {
+    background: #0d1b2a;
+    border: 1px solid #243b53;
+    border-radius: 14px;
+    padding: 20px;
+    min-height: 125px;
+}
+
+.card-title {
+    color: #829ab1;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.card-value {
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+.card-sub {
+    margin-top: 7px;
+    font-size: 12px;
+    color: #829ab1;
+}
+
+/* STATUS */
+.status-clear {
+    color: #2ecc71;
+}
+
+.status-warning {
+    color: #f5b942;
+}
+
+.status-alert {
+    color: #e74c3c;
+}
+
+/* MAIN GRID */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 20px;
+}
+
+/* PANELS */
+.panel {
+    background: #0d1b2a;
+    border: 1px solid #243b53;
+    border-radius: 14px;
+    padding: 20px;
+}
+
+.panel-title {
+    font-size: 17px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.panel-subtitle {
+    color: #829ab1;
+    font-size: 12px;
+    margin-bottom: 18px;
+}
+
+/* RADAR */
+.radar-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    width: 100%;
+    max-width: 650px;
+    height: auto;
+    background: #02070d;
+    border-radius: 10px;
+    border: 1px solid #1d354d;
+}
+
+/* ZONE INFO */
+.zone-box {
+    background: #081522;
+    border: 1px solid #243b53;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.zone-label {
+    color: #829ab1;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.zone-status {
+    font-size: 25px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.zone-description {
+    color: #9fb3c8;
+    font-size: 13px;
+    margin-top: 7px;
+    line-height: 1.5;
+}
+
+/* INFO ROWS */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid #1c3145;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    color: #829ab1;
+}
+
+.info-value {
+    font-weight: bold;
+}
+
+/* ALERT BUTTON */
+.sound-btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 9px;
+    background: #1677ff;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 16px;
+}
+
+.sound-btn:hover {
+    background: #0d63d7;
+}
+
+/* TABLE */
+.table-panel {
+    margin-top: 20px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #1c3145;
+    font-size: 13px;
+}
+
+th {
+    color: #829ab1;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.safe {
+    color: #2ecc71;
+}
+
+.warning {
+    color: #f5b942;
+}
+
+.alert {
+    color: #e74c3c;
+}
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    color: #52677d;
+    font-size: 12px;
+    padding: 25px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1000px) {
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 15px;
+    }
+
+    .cards {
+        grid-template-columns: 1fr;
+    }
+
+    .header {
+        padding: 18px;
+    }
+
+    .header h1 {
+        font-size: 22px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>🏭 WAREHOUSE RESTRICTED ZONE MONITORING</h1>
+    <p>Low-Cost IoT-Based Real-Time Safety Zone Monitoring System</p>
+</div>
+
+<div class="container">
+
+    <!-- CONNECTION -->
+    <div class="connection" id="connectionBox">
+        <div class="connection-dot"></div>
+        <span id="connectionText">Connecting to monitoring network...</span>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="cards">
+
+        <div class="card">
+            <div class="card-title">Nearest Object</div>
+            <div class="card-value" id="distance">-- cm</div>
+            <div class="card-sub">Real-time proximity</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Scan Angle</div>
+            <div class="card-value" id="angle">--°</div>
+            <div class="card-sub">Current radar position</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Zone Status</div>
+            <div class="card-value status-clear" id="status">
+                ZONE CLEAR
+            </div>
+            <div class="card-sub">Restricted area monitoring</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Proximity</div>
+            <div class="card-value status-clear" id="proximity">
+                NORMAL
+            </div>
+            <div class="card-sub">Monitoring condition</div>
+        </div>
+
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div class="dashboard">
+
+        <!-- RADAR -->
+        <div class="panel">
+
+            <div class="panel-title">
+                📡 Live Radar Monitoring
+            </div>
+
+            <div class="panel-subtitle">
+                Real-time scan of the warehouse restricted zone
+            </div>
+
+            <div class="radar-container">
+                <canvas id="radarCanvas"
+                        width="700"
+                        height="430">
+                </canvas>
+            </div>
+
+        </div>
+
+        <!-- ZONE INFORMATION -->
+        <div class="panel">
+
+            <div class="panel-title">
+                🛡️ Restricted Zone Status
+            </div>
+
+            <div class="panel-subtitle">
+                Distance-based proximity monitoring
+            </div>
+
+            <div class="zone-box">
+
+                <div class="zone-label">
+                    Current Monitoring Status
+                </div>
+
+                <div class="zone-status status-clear"
+                     id="zoneStatus">
+                    🟢 ZONE CLEAR
+                </div>
+
+                <div class="zone-description"
+                     id="zoneDescription">
+                    No object detected within the restricted proximity zone.
+                </div>
+
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Distance</span>
+                <span class="info-value" id="infoDistance">
+                    -- cm
+                </span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Angle</span>
+                <span class="info-value" id="infoAngle">
+                    --°
+                </span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Monitoring Range</span>
+                <span class="info-value">
+                    0–200 cm
+                </span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">System</span>
+                <span class="info-value">
+                    IoT Online
+                </span>
+            </div>
+
+            <button class="sound-btn"
+                    onclick="enableSound()">
+                🔊 ENABLE PHONE ALERT
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- RECENT READINGS -->
+    <div class="panel table-panel">
+
+        <div class="panel-title">
+            📊 Recent Monitoring Readings
+        </div>
+
+        <div class="panel-subtitle">
+            Latest detected objects within the monitoring range
+        </div>
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Angle</th>
+                        <th>Distance</th>
+                        <th>Zone Condition</th>
+                    </tr>
+                </thead>
+
+                <tbody id="readingTable">
+
+                    <tr>
+                        <td colspan="4">
+                            Waiting for live sensor data...
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="footer">
+    TEAM 10 • Smart Radar • Warehouse Safety Monitoring • 2026
+</div>
+
+
+<script>
+
+/* =========================================================
+   MQTT CONFIGURATION
+   SAME SETTINGS AS YOUR WORKING ESP8266 PROJECT
+========================================================= */
+
+const MQTT_BROKER = "broker.hivemq.com";
+const MQTT_PORT = 8884;
+const MQTT_TOPIC = "smart_radar/data";
+
+const client = new Paho.MQTT.Client(
+    MQTT_BROKER,
+    MQTT_PORT,
+    "warehouseDashboard_" +
+    Date.now() +
+    "_" +
+    Math.floor(Math.random() * 10000)
+);
+
+
+/* =========================================================
+   RADAR VARIABLES
+========================================================= */
+
+let currentAngle = 90;
+let currentDistance = 200;
+
+let previousAngle = 90;
+
+const canvas = document.getElementById("radarCanvas");
+const ctx = canvas.getContext("2d");
+
+
+/* =========================================================
+   AUDIO
+========================================================= */
+
+let audioContext = null;
+let soundEnabled = false;
+let lastAlertTime = 0;
+
+function enableSound() {
+
+    audioContext =
+        new (window.AudioContext ||
+             window.webkitAudioContext)();
+
+    soundEnabled = true;
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
+
+    playBeep(700, 0.08);
+
+    document.querySelector(".sound-btn").innerText =
+        "🔊 PHONE ALERT ENABLED";
+}
+
+
+function playBeep(frequency = 700, duration = 0.12) {
+
+    if (!soundEnabled || !audioContext) {
+        return;
+    }
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    const gain =
+        audioContext.createGain();
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.frequency.value = frequency;
+
+    gain.gain.setValueAtTime(
+        0.15,
+        audioContext.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioContext.currentTime + duration
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + duration
+    );
+}
+
+
+/* =========================================================
+   ZONE STATUS
+========================================================= */
+
+function getZoneStatus(distance) {
+
+    if (distance < 50) {
+
+        return {
+            status: "🔴 RESTRICTED ZONE INTRUSION",
+            shortStatus: "INTRUSION",
+            description:
+                "Object detected within the restricted zone.",
+            className: "status-alert"
+        };
+
+    } else if (distance < 100) {
+
+        return {
+            status: "🟡 OBJECT APPROACHING",
+            shortStatus: "APPROACHING",
+            description:
+                "Object approaching the restricted zone.",
+            className: "status-warning"
+        };
+
+    } else {
+
+        return {
+            status: "🟢 ZONE CLEAR",
+            shortStatus: "CLEAR",
+            description:
+                "No object detected within the restricted proximity zone.",
+            className: "status-clear"
+        };
+    }
+}
+
+
+/* =========================================================
+   UPDATE DASHBOARD
+========================================================= */
+
+function updateDashboard(angle, distance) {
+
+    currentAngle = angle;
+    currentDistance = distance;
+
+    const zone = getZoneStatus(distance);
+
+    document.getElementById("distance").innerText =
+        distance.toFixed(1) + " cm";
+
+    document.getElementById("angle").innerText =
+        angle + "°";
+
+    document.getElementById("infoDistance").innerText =
+        distance.toFixed(1) + " cm";
+
+    document.getElementById("infoAngle").innerText =
+        angle + "°";
+
+
+    /* MAIN STATUS */
+
+    const statusElement =
+        document.getElementById("status");
+
+    statusElement.innerText =
+        zone.status;
+
+    statusElement.className =
+        "card-value " + zone.className;
+
+
+    /* PROXIMITY */
+
+    const proximity =
+        document.getElementById("proximity");
+
+    proximity.innerText =
+        zone.shortStatus;
+
+    proximity.className =
+        "card-value " + zone.className;
+
+
+    /* ZONE PANEL */
+
+    const zoneStatus =
+        document.getElementById("zoneStatus");
+
+    zoneStatus.innerText =
+        zone.status;
+
+    zoneStatus.className =
+        "zone-status " + zone.className;
+
+
+    document.getElementById("zoneDescription").innerText =
+        zone.description;
+
+
+    /* ALERT SOUND */
+
+    if (
+        distance < 50 &&
+        soundEnabled &&
+        Date.now() - lastAlertTime > 2000
+    ) {
+
+        playBeep(900, 0.15);
+
+        lastAlertTime = Date.now();
+    }
+
+
+    /* TABLE */
+
+    addReading(angle, distance, zone.shortStatus);
+}
+
+
+/* =========================================================
+   RECENT READINGS
+========================================================= */
+
+function addReading(angle, distance, status) {
+
+    const table =
+        document.getElementById("readingTable");
+
+    if (
+        table.children.length === 1 &&
+        table.children[0].children.length === 1
+    ) {
+        table.innerHTML = "";
+    }
+
+    const row =
+        document.createElement("tr");
+
+    let className = "safe";
+
+    if (distance < 50) {
+        className = "alert";
+    }
+    else if (distance < 100) {
+        className = "warning";
+    }
+
+    row.innerHTML = `
+        <td>${new Date().toLocaleTimeString()}</td>
+        <td>${angle}°</td>
+        <td>${distance.toFixed(1)} cm</td>
+        <td class="${className}">${status}</td>
+    `;
+
+    table.insertBefore(row, table.firstChild);
+
+    while (table.children.length > 8) {
+        table.removeChild(table.lastChild);
+    }
+}
+
+
+/* =========================================================
+   MQTT MESSAGE
+========================================================= */
+
+client.onMessageArrived = function(message) {
+
+    try {
+
+        const data =
+            JSON.parse(message.payloadString);
+
+        if (
+            data.angle !== undefined &&
+            data.distance !== undefined
+        ) {
+
+            updateDashboard(
+                Number(data.angle),
+                Number(data.distance)
+            );
+        }
+
+    }
+    catch (error) {
+
+        console.error(
+            "Invalid MQTT data:",
+            error
+        );
+    }
+};
+
+
+/* =========================================================
+   MQTT CONNECTION
+========================================================= */
+
+client.connect({
+
+    useSSL: true,
+
+    timeout: 5,
+
+    onSuccess: function() {
+
+        console.log("Connected to MQTT");
+
+        const box =
+            document.getElementById("connectionBox");
+
+        box.className =
+            "connection connected";
+
+        document.getElementById("connectionText").innerText =
+            "LIVE • Connected to warehouse monitoring network";
+
+        client.subscribe(MQTT_TOPIC);
+
+        console.log(
+            "Subscribed to:",
+            MQTT_TOPIC
+        );
+    },
+
+    onFailure: function(error) {
+
+        console.error(
+            "MQTT connection failed:",
+            error
+        );
+
+        const box =
+            document.getElementById("connectionBox");
+
+        box.className =
+            "connection failed";
+
+        document.getElementById("connectionText").innerText =
+            "MQTT connection failed • Check network connection";
+    }
+
+});
+
+
+/* =========================================================
+   RADAR DRAWING
+========================================================= */
+
+function drawRadar() {
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    /* BACKGROUND */
+
+    ctx.fillStyle = "#02070d";
+
+    ctx.fillRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+
+    const centerX =
+        width / 2;
+
+    const centerY =
+        height - 25;
+
+    const maxRadius =
+        Math.min(
+            width * 0.44,
+            height * 0.88
+        );
+
+
+    /* RADAR RINGS */
+
+    ctx.strokeStyle =
+        "rgba(46, 204, 113, 0.35)";
+
+    ctx.lineWidth = 1.5;
+
+    for (
+        let i = 1;
+        i <= 4;
+        i++
+    ) {
+
+        const radius =
+            maxRadius * i / 4;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            centerX,
+            centerY,
+            radius,
+            Math.PI,
+            2 * Math.PI
+        );
+
+        ctx.stroke();
+    }
+
+
+    /* RADIAL LINES */
+
+    ctx.strokeStyle =
+        "rgba(46, 204, 113, 0.22)";
+
+    for (
+        let angle = 0;
+        angle <= 180;
+        angle += 30
+    ) {
+
+        const radians =
+            angle * Math.PI / 180;
+
+        const x =
+            centerX +
+            maxRadius *
+            Math.cos(Math.PI - radians);
+
+        const y =
+            centerY -
+            maxRadius *
+            Math.sin(radians);
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            centerX,
+            centerY
+        );
+
+        ctx.lineTo(
+            x,
+            y
+        );
+
+        ctx.stroke();
+    }
+
+
+    /* BASE LINE */
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        centerX - maxRadius,
+        centerY
+    );
+
+    ctx.lineTo(
+        centerX + maxRadius,
+        centerY
+    );
+
+    ctx.stroke();
+
+
+    /* DISTANCE LABELS */
+
+    ctx.fillStyle =
+        "rgba(46, 204, 113, 0.7)";
+
+    ctx.font =
+        "12px Arial";
+
+    ctx.fillText(
+        "200 cm",
+        centerX + 8,
+        centerY - maxRadius + 15
+    );
+
+    ctx.fillText(
+        "150 cm",
+        centerX + 8,
+        centerY - maxRadius * 0.75 + 15
+    );
+
+    ctx.fillText(
+        "100 cm",
+        centerX + 8,
+        centerY - maxRadius * 0.50 + 15
+    );
+
+    ctx.fillText(
+        "50 cm",
+        centerX + 8,
+        centerY - maxRadius * 0.25 + 15
+    );
+
+
+    /* SWEEP LINE */
+
+    const angleRad =
+        currentAngle *
+        Math.PI / 180;
+
+    const sweepX =
+        centerX -
+        maxRadius *
+        Math.cos(angleRad);
+
+    const sweepY =
+        centerY -
+        maxRadius *
+        Math.sin(angleRad);
+
+    ctx.strokeStyle =
+        "#2ecc71";
+
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        centerX,
+        centerY
+    );
+
+    ctx.lineTo(
+        sweepX,
+        sweepY
+    );
+
+    ctx.stroke();
+
+
+    /* OBJECT */
+
+    if (currentDistance <= 200) {
+
+        const objectRadius =
+            maxRadius *
+            (currentDistance / 200);
+
+        const objectX =
+            centerX -
+            objectRadius *
+            Math.cos(angleRad);
+
+        const objectY =
+            centerY -
+            objectRadius *
+            Math.sin(angleRad);
+
+
+        let objectColor =
+            "#2ecc71";
+
+        if (currentDistance < 50) {
+            objectColor = "#e74c3c";
+        }
+        else if (currentDistance < 100) {
+            objectColor = "#f5b942";
+        }
+
+
+        ctx.fillStyle =
+            objectColor;
+
+        ctx.shadowBlur = 18;
+
+        ctx.shadowColor =
+            objectColor;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            objectX,
+            objectY,
+            7,
+            0,
+            2 * Math.PI
+        );
+
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+
+        /* OBJECT LINE */
+
+        ctx.strokeStyle =
+            objectColor;
+
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            centerX,
+            centerY
+        );
+
+        ctx.lineTo(
+            objectX,
+            objectY
+        );
+
+        ctx.stroke();
+    }
+
+
+    /* CENTER */
+
+    ctx.fillStyle =
+        "#2ecc71";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        centerX,
+        centerY,
+        5,
+        0,
+        2 * Math.PI
+    );
+
+    ctx.fill();
+
+
+    /* ANGLE TEXT */
+
+    ctx.fillStyle =
+        "#9fb3c8";
+
+    ctx.font =
+        "13px Arial";
+
+    ctx.fillText(
+        "0°",
+        centerX + maxRadius + 5,
+        centerY + 4
+    );
+
+    ctx.fillText(
+        "180°",
+        centerX - maxRadius - 35,
+        centerY + 4
+    );
+}
+
+
+/* =========================================================
+   RADAR ANIMATION LOOP
+========================================================= */
+
+function animateRadar() {
+
+    drawRadar();
+
+    requestAnimationFrame(
+        animateRadar
+    );
+}
+
+animateRadar();
+
+</script>
+
+</body>
+</html>
