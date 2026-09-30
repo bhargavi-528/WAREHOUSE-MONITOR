@@ -22,7 +22,6 @@ body {
     min-height: 100vh;
 }
 
-/* HEADER */
 .header {
     background: linear-gradient(135deg, #0d1b2a, #102a43);
     padding: 22px 35px;
@@ -40,14 +39,12 @@ body {
     font-size: 14px;
 }
 
-/* MAIN */
 .container {
     padding: 25px;
     max-width: 1500px;
     margin: auto;
 }
 
-/* CONNECTION */
 .connection {
     display: flex;
     align-items: center;
@@ -75,7 +72,6 @@ body {
     background: #e74c3c;
 }
 
-/* KPI GRID */
 .cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -110,7 +106,6 @@ body {
     color: #829ab1;
 }
 
-/* STATUS */
 .status-clear {
     color: #2ecc71;
 }
@@ -123,14 +118,12 @@ body {
     color: #e74c3c;
 }
 
-/* MAIN GRID */
 .dashboard {
     display: grid;
     grid-template-columns: 1.5fr 1fr;
     gap: 20px;
 }
 
-/* PANELS */
 .panel {
     background: #0d1b2a;
     border: 1px solid #243b53;
@@ -150,7 +143,6 @@ body {
     margin-bottom: 18px;
 }
 
-/* RADAR */
 .radar-container {
     width: 100%;
     display: flex;
@@ -167,7 +159,6 @@ canvas {
     border: 1px solid #1d354d;
 }
 
-/* ZONE INFO */
 .zone-box {
     background: #081522;
     border: 1px solid #243b53;
@@ -196,7 +187,6 @@ canvas {
     line-height: 1.5;
 }
 
-/* INFO ROWS */
 .info-row {
     display: flex;
     justify-content: space-between;
@@ -216,7 +206,6 @@ canvas {
     font-weight: bold;
 }
 
-/* ALERT BUTTON */
 .sound-btn {
     width: 100%;
     padding: 13px;
@@ -233,7 +222,6 @@ canvas {
     background: #0d63d7;
 }
 
-/* TABLE */
 .table-panel {
     margin-top: 20px;
 }
@@ -273,7 +261,6 @@ th {
     color: #e74c3c;
 }
 
-/* FOOTER */
 .footer {
     text-align: center;
     color: #52677d;
@@ -281,7 +268,6 @@ th {
     padding: 25px;
 }
 
-/* RESPONSIVE */
 @media (max-width: 1000px) {
     .cards {
         grid-template-columns: repeat(2, 1fr);
@@ -314,7 +300,6 @@ th {
 
 <body>
 
-<!-- HEADER -->
 <div class="header">
     <h1>🏭 WAREHOUSE RESTRICTED ZONE MONITORING</h1>
     <p>Low-Cost IoT-Based Real-Time Safety Zone Monitoring System</p>
@@ -322,13 +307,11 @@ th {
 
 <div class="container">
 
-    <!-- CONNECTION -->
     <div class="connection" id="connectionBox">
         <div class="connection-dot"></div>
         <span id="connectionText">Connecting to monitoring network...</span>
     </div>
 
-    <!-- KPI CARDS -->
     <div class="cards">
 
         <div class="card">
@@ -361,10 +344,8 @@ th {
 
     </div>
 
-    <!-- MAIN DASHBOARD -->
     <div class="dashboard">
 
-        <!-- RADAR -->
         <div class="panel">
 
             <div class="panel-title">
@@ -384,7 +365,6 @@ th {
 
         </div>
 
-        <!-- ZONE INFORMATION -->
         <div class="panel">
 
             <div class="panel-title">
@@ -450,7 +430,6 @@ th {
 
     </div>
 
-    <!-- RECENT READINGS -->
     <div class="panel table-panel">
 
         <div class="panel-title">
@@ -496,13 +475,7 @@ th {
     TEAM 10 • Smart Radar • Warehouse Safety Monitoring • 2026
 </div>
 
-
 <script>
-
-/* =========================================================
-   MQTT CONFIGURATION
-   SAME SETTINGS AS YOUR WORKING ESP8266 PROJECT
-========================================================= */
 
 const MQTT_BROKER = "broker.hivemq.com";
 const MQTT_PORT = 8884;
@@ -517,23 +490,15 @@ const client = new Paho.MQTT.Client(
     Math.floor(Math.random() * 10000)
 );
 
-
-/* =========================================================
-   RADAR VARIABLES
-========================================================= */
-
 let currentAngle = 90;
 let currentDistance = 200;
-
 let previousAngle = 90;
 
 const canvas = document.getElementById("radarCanvas");
 const ctx = canvas.getContext("2d");
 
 
-/* =========================================================
-   AUDIO
-========================================================= */
+/* ================= AUDIO ================= */
 
 let audioContext = null;
 let soundEnabled = false;
@@ -557,26 +522,27 @@ function enableSound() {
         "🔊 PHONE ALERT ENABLED";
 }
 
-
 function playBeep(frequency = 700, duration = 0.12) {
 
     if (!soundEnabled || !audioContext) {
         return;
     }
 
-    const oscillator =
-        audioContext.createOscillator();
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
 
-    const gain =
-        audioContext.createGain();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
 
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
 
-    oscillator.frequency.value = frequency;
-
     gain.gain.setValueAtTime(
-        0.15,
+        0.12,
         audioContext.currentTime
     );
 
@@ -592,10 +558,81 @@ function playBeep(frequency = 700, duration = 0.12) {
     );
 }
 
+function playBuzzer() {
 
-/* =========================================================
-   ZONE STATUS
-========================================================= */
+    if (!soundEnabled || !audioContext) {
+        return;
+    }
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
+
+    const now = audioContext.currentTime;
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "square";
+
+    oscillator.frequency.setValueAtTime(850, now);
+    oscillator.frequency.setValueAtTime(650, now + 0.18);
+    oscillator.frequency.setValueAtTime(850, now + 0.36);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    gain.gain.setValueAtTime(0.45, now);
+
+    gain.gain.setValueAtTime(
+        0.45,
+        now + 0.18
+    );
+
+    gain.gain.setValueAtTime(
+        0.03,
+        now + 0.20
+    );
+
+    gain.gain.setValueAtTime(
+        0.45,
+        now + 0.25
+    );
+
+    gain.gain.setValueAtTime(
+        0.45,
+        now + 0.43
+    );
+
+    gain.gain.setValueAtTime(
+        0.03,
+        now + 0.45
+    );
+
+    gain.gain.setValueAtTime(
+        0.45,
+        now + 0.50
+    );
+
+    gain.gain.setValueAtTime(
+        0.45,
+        now + 0.68
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + 0.8
+    );
+
+    oscillator.start(now);
+
+    oscillator.stop(
+        now + 0.8
+    );
+}
+
+
+/* ================= ZONE STATUS ================= */
 
 function getZoneStatus(distance) {
 
@@ -632,9 +669,7 @@ function getZoneStatus(distance) {
 }
 
 
-/* =========================================================
-   UPDATE DASHBOARD
-========================================================= */
+/* ================= UPDATE DASHBOARD ================= */
 
 function updateDashboard(angle, distance) {
 
@@ -656,8 +691,6 @@ function updateDashboard(angle, distance) {
         angle + "°";
 
 
-    /* MAIN STATUS */
-
     const statusElement =
         document.getElementById("status");
 
@@ -668,8 +701,6 @@ function updateDashboard(angle, distance) {
         "card-value " + zone.className;
 
 
-    /* PROXIMITY */
-
     const proximity =
         document.getElementById("proximity");
 
@@ -679,8 +710,6 @@ function updateDashboard(angle, distance) {
     proximity.className =
         "card-value " + zone.className;
 
-
-    /* ZONE PANEL */
 
     const zoneStatus =
         document.getElementById("zoneStatus");
@@ -699,26 +728,34 @@ function updateDashboard(angle, distance) {
     /* ALERT SOUND */
 
     if (
+        distance >= 50 &&
+        distance < 100 &&
+        soundEnabled &&
+        Date.now() - lastAlertTime > 2000
+    ) {
+
+        playBeep(700, 0.12);
+
+        lastAlertTime = Date.now();
+    }
+
+    if (
         distance < 50 &&
         soundEnabled &&
         Date.now() - lastAlertTime > 2000
     ) {
 
-        playBeep(900, 0.15);
+        playBuzzer();
 
         lastAlertTime = Date.now();
     }
 
 
-    /* TABLE */
-
     addReading(angle, distance, zone.shortStatus);
 }
 
 
-/* =========================================================
-   RECENT READINGS
-========================================================= */
+/* ================= RECENT READINGS ================= */
 
 function addReading(angle, distance, status) {
 
@@ -759,9 +796,7 @@ function addReading(angle, distance, status) {
 }
 
 
-/* =========================================================
-   MQTT MESSAGE
-========================================================= */
+/* ================= MQTT ================= */
 
 client.onMessageArrived = function(message) {
 
@@ -791,10 +826,6 @@ client.onMessageArrived = function(message) {
     }
 };
 
-
-/* =========================================================
-   MQTT CONNECTION
-========================================================= */
 
 client.connect({
 
@@ -843,9 +874,7 @@ client.connect({
 });
 
 
-/* =========================================================
-   RADAR DRAWING
-========================================================= */
+/* ================= RADAR DRAWING ================= */
 
 function drawRadar() {
 
@@ -859,9 +888,6 @@ function drawRadar() {
         height
     );
 
-
-    /* BACKGROUND */
-
     ctx.fillStyle = "#02070d";
 
     ctx.fillRect(
@@ -870,7 +896,6 @@ function drawRadar() {
         width,
         height
     );
-
 
     const centerX =
         width / 2;
@@ -1157,9 +1182,7 @@ function drawRadar() {
 }
 
 
-/* =========================================================
-   RADAR ANIMATION LOOP
-========================================================= */
+/* ================= ANIMATION ================= */
 
 function animateRadar() {
 
